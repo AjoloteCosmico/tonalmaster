@@ -1,0 +1,994 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Calendario Ancestral</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@400;700&family=Cinzel:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --stone-dark: #1a1208;
+    --stone-mid: #2d2010;
+    --stone-light: #4a3520;
+    --gold: #c8960c;
+    --gold-bright: #f0c030;
+    --gold-dim: #8a6508;
+    --rust: #8b3a1a;
+    --cream: #e8d5a0;
+    --cream-dim: #a89060;
+    --turquoise: #2a7a6a;
+    --glow: rgba(200,150,12,0.15);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #050305;
+    font-family: 'Cinzel', serif;
+    color: var(--cream);
+    min-height: 100vh;
+    overflow-x: hidden;
+    user-select: none;
+  }
+
+  /* ── STARFIELD ── */
+  #starfield {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+  }
+
+  /* ── WRAPPER ── */
+  .wrapper {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 30px 20px 60px;
+    min-height: 100vh;
+  }
+
+  /* ── TITLE ── */
+  .title {
+    font-family: 'Cinzel Decorative', serif;
+    font-size: clamp(1rem, 3vw, 1.5rem);
+    color: var(--gold-bright);
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    text-shadow: 0 0 20px var(--gold), 0 0 40px rgba(200,150,12,0.4);
+    margin-bottom: 6px;
+  }
+  .subtitle {
+    font-size: 0.65rem;
+    letter-spacing: 0.5em;
+    color: var(--cream-dim);
+    text-transform: uppercase;
+    margin-bottom: 28px;
+  }
+
+  /* ── DATE INPUT ── */
+  .date-wrap {
+    position: relative;
+    margin-bottom: 36px;
+  }
+  .date-wrap::before {
+    content: '';
+    position: absolute;
+    inset: -4px;
+    border: 1px solid var(--gold-dim);
+    clip-path: polygon(8px 0%, calc(100% - 8px) 0%, 100% 8px, 100% calc(100% - 8px), calc(100% - 8px) 100%, 8px 100%, 0% calc(100% - 8px), 0% 8px);
+    pointer-events: none;
+  }
+  .date-wrap::after {
+    content: '◆';
+    position: absolute;
+    right: -18px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--gold);
+    font-size: 10px;
+  }
+  input[type="datetime-local"] {
+    background: rgba(20,12,4,0.9);
+    border: 1px solid var(--gold-dim);
+    color: var(--gold-bright);
+    font-family: 'Cinzel', serif;
+    font-size: 0.92rem;
+    letter-spacing: 0.1em;
+    padding: 10px 18px;
+    outline: none;
+    cursor: pointer;
+    clip-path: polygon(8px 0%, calc(100% - 8px) 0%, 100% 8px, 100% calc(100% - 8px), calc(100% - 8px) 100%, 8px 100%, 0% calc(100% - 8px), 0% 8px);
+  }
+  input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+    filter: invert(0.7) sepia(1) saturate(3) hue-rotate(10deg);
+    cursor: pointer;
+  }
+  .time-note {
+    font-size: 0.48rem;
+    letter-spacing: 0.3em;
+    color: var(--gold-dim);
+    text-align: center;
+    margin-top: 5px;
+    opacity: 0.75;
+  }
+
+  /* ── GEARS STAGE ── */
+  .gears-stage {
+    position: relative;
+    width: 100%;
+    max-width: 780px;
+    height: 400px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
+    margin-bottom: 160px; /* room for sign panel below nexus */
+  }
+
+  .gear-container {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* ── SVG GEARS ── */
+  .gear-svg {
+    overflow: visible;
+    filter: drop-shadow(0 0 18px rgba(200,150,12,0.35)) drop-shadow(0 0 5px rgba(200,150,12,0.15));
+  }
+
+  /* ── IMAGE SLOTS ── */
+  .slot-img {
+    position: absolute;
+    width: 42px;
+    height: 42px;
+    object-fit: contain;
+    pointer-events: none;
+    /* positioned dynamically via JS */
+  }
+
+  /* ── LABEL ── */
+  .gear-label {
+    position: absolute;
+    bottom: -26px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 0.55rem;
+    letter-spacing: 0.35em;
+    color: var(--cream-dim);
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+
+  /* ── MEETING POINT ── */
+  .gear-separator {
+    position: relative;
+    width: 0;
+    height: 0;
+    flex-shrink: 0;
+    z-index: 10;
+  }
+  .nexus-dot {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 16px;
+    height: 16px;
+    background: radial-gradient(circle, #fff8c0 0%, #f0c030 40%, #c8960c 100%);
+    border-radius: 50%;
+    box-shadow: 0 0 10px #f0c030, 0 0 22px #c8960c, 0 0 44px rgba(200,150,12,0.6);
+    z-index: 12;
+    pointer-events: none;
+  }
+  .nexus-axis {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 1px;
+    height: 320px;
+    background: linear-gradient(to bottom,
+      rgba(200,150,12,0) 0%,
+      rgba(200,150,12,0.35) 20%,
+      rgba(240,192,48,0.7) 50%,
+      rgba(200,150,12,0.35) 80%,
+      rgba(200,150,12,0) 100%
+    );
+    pointer-events: none;
+    z-index: 8;
+  }
+
+  /* ── ACTIVE SIGN PANEL ── */
+  .sign-panel {
+    position: absolute;
+    left: 50%;
+    bottom: -150px;
+    transform: translateX(-50%);
+    width: 220px;
+    background: rgba(10,7,2,0.93);
+    border: 1px solid var(--gold-dim);
+    clip-path: polygon(14px 0%, calc(100% - 14px) 0%, 100% 14px, 100% calc(100% - 14px), calc(100% - 14px) 100%, 14px 100%, 0% calc(100% - 14px), 0% 14px);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 10px 12px 12px;
+    z-index: 20;
+    pointer-events: none;
+    box-shadow: 0 0 24px rgba(200,150,12,0.2), inset 0 0 30px rgba(200,150,12,0.04);
+  }
+  .sign-panel::before {
+    content: '';
+    position: absolute;
+    inset: 3px;
+    border: 1px solid rgba(200,150,12,0.2);
+    clip-path: polygon(12px 0%, calc(100% - 12px) 0%, 100% 12px, 100% calc(100% - 12px), calc(100% - 12px) 100%, 12px 100%, 0% calc(100% - 12px), 0% 12px);
+    pointer-events: none;
+  }
+  .sign-panel-title {
+    font-family: 'Cinzel Decorative', serif;
+    font-size: 0.42rem;
+    letter-spacing: 0.4em;
+    color: var(--gold-dim);
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+  .sign-pair {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    justify-content: center;
+  }
+  .sign-slot {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    flex: 1;
+  }
+  .sign-slot-img {
+    width: 54px;
+    height: 54px;
+    border: 1px solid var(--gold-dim);
+    background: rgba(200,150,12,0.06);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    color: rgba(200,150,12,0.75);
+    clip-path: polygon(6px 0%, calc(100% - 6px) 0%, 100% 6px, 100% calc(100% - 6px), calc(100% - 6px) 100%, 6px 100%, 0% calc(100% - 6px), 0% 6px);
+    overflow: hidden;
+  }
+  .sign-slot-img img { width:100%; height:100%; object-fit:contain; }
+  .sign-slot-label {
+    font-size: 0.44rem;
+    letter-spacing: 0.25em;
+    color: var(--cream-dim);
+    text-align: center;
+  }
+  .sign-divider {
+    width: 1px;
+    height: 44px;
+    background: linear-gradient(to bottom, transparent, var(--gold-dim), transparent);
+    flex-shrink: 0;
+  }
+  .sign-panel-corner {
+    position: absolute;
+    width: 8px; height: 8px;
+    border-color: var(--gold);
+    border-style: solid;
+  }
+  .sign-panel-corner.tl { top:6px; left:6px; border-width:1px 0 0 1px; }
+  .sign-panel-corner.tr { top:6px; right:6px; border-width:1px 1px 0 0; }
+  .sign-panel-corner.bl { bottom:6px; left:6px; border-width:0 0 1px 1px; }
+  .sign-panel-corner.br { bottom:6px; right:6px; border-width:0 1px 1px 0; }
+
+  /* ── ARROWS ── */
+  .arrows {
+    display: flex;
+    align-items: center;
+    gap: 60px;
+    margin-top: 8px;
+  }
+  .arrow-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    position: relative;
+    width: 60px;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.15s;
+  }
+  .arrow-btn:hover { transform: scale(1.12); }
+  .arrow-btn:active { transform: scale(0.95); }
+  .arrow-btn svg {
+    filter: drop-shadow(0 0 8px var(--gold));
+  }
+
+  /* ── RUNIC DECORATION ── */
+  .rune-band {
+    margin-top: 40px;
+    font-size: 0.75rem;
+    letter-spacing: 0.4em;
+    color: var(--gold-dim);
+    text-align: center;
+    opacity: 0.7;
+  }
+
+  /* ── UPLOAD PANEL ── */
+  .upload-panel {
+    margin-top: 32px;
+    width: 100%;
+    max-width: 780px;
+    background: rgba(20,12,4,0.7);
+    border: 1px solid var(--gold-dim);
+    padding: 18px 24px;
+    clip-path: polygon(12px 0%, calc(100% - 12px) 0%, 100% 12px, 100% calc(100% - 12px), calc(100% - 12px) 100%, 12px 100%, 0% calc(100% - 12px), 0% 12px);
+  }
+  .upload-panel h3 {
+    font-family: 'Cinzel Decorative', serif;
+    font-size: 0.65rem;
+    letter-spacing: 0.4em;
+    color: var(--gold);
+    text-transform: uppercase;
+    margin-bottom: 14px;
+    text-align: center;
+  }
+  .slots-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: center;
+  }
+  .slot-upload {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+  }
+  .slot-upload label {
+    font-size: 0.5rem;
+    letter-spacing: 0.2em;
+    color: var(--cream-dim);
+  }
+  .slot-upload .thumb {
+    width: 36px;
+    height: 36px;
+    border: 1px solid var(--gold-dim);
+    background: rgba(200,150,12,0.06);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    overflow: hidden;
+    font-size: 0.6rem;
+    color: var(--gold-dim);
+    transition: border-color 0.2s, background 0.2s;
+  }
+  .slot-upload .thumb:hover {
+    border-color: var(--gold);
+    background: rgba(200,150,12,0.15);
+  }
+  .slot-upload .thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+  }
+  .slot-upload input[type="file"] { display: none; }
+</style>
+</head>
+<body>
+
+<canvas id="starfield"></canvas>
+
+<div class="wrapper">
+
+  <div class="title">Tonalpohualli</div>
+  <div class="subtitle">Calendario Sagrado · Ciclo de 260 días</div>
+
+  <div class="date-wrap">
+    <input type="datetime-local" id="dateInput">
+    <div class="time-note">Fecha y hora del signo</div>
+  </div>
+
+  <div class="gears-stage" id="gearsStage">
+    <div class="gear-container" id="leftGearContainer">
+      <canvas id="leftGear"></canvas>
+      <span class="gear-label">Trecena · 13 signos</span>
+    </div>
+    <div class="gear-separator">
+      <div class="nexus-axis"></div>
+      <div class="nexus-dot"></div>
+      <!-- Active sign panel hangs below nexus point -->
+      <div class="sign-panel" id="signPanel">
+        <div class="sign-panel-corner tl"></div>
+        <div class="sign-panel-corner tr"></div>
+        <div class="sign-panel-corner bl"></div>
+        <div class="sign-panel-corner br"></div>
+        <div class="sign-panel-title">Signo del Día</div>
+        <div class="sign-pair">
+          <div class="sign-slot">
+            <div class="sign-slot-img" id="panelImgLeft">☉</div>
+            <div class="sign-slot-label" id="panelLblLeft">Trecena</div>
+          </div>
+          <div class="sign-divider"></div>
+          <div class="sign-slot">
+            <div class="sign-slot-img" id="panelImgRight">☽</div>
+            <div class="sign-slot-label" id="panelLblRight">Veintena</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="gear-container" id="rightGearContainer">
+      <canvas id="rightGear"></canvas>
+      <span class="gear-label">Veintena · 20 signos</span>
+    </div>
+  </div>
+
+  <div class="arrows">
+    <button class="arrow-btn" id="btnLeft" title="Retroceder">
+      <svg width="54" height="54" viewBox="0 0 54 54">
+        <polygon points="38,10 16,27 38,44" fill="none" stroke="#c8960c" stroke-width="2.5" stroke-linejoin="round"/>
+        <line x1="14" y1="10" x2="14" y2="44" stroke="#c8960c" stroke-width="2" stroke-linecap="round"/>
+        <!-- rune marks -->
+        <line x1="8" y1="27" x2="6" y2="22" stroke="#8a6508" stroke-width="1"/>
+        <line x1="8" y1="27" x2="6" y2="32" stroke="#8a6508" stroke-width="1"/>
+        <circle cx="27" cy="27" r="26" fill="none" stroke="#8a6508" stroke-width="0.5" stroke-dasharray="3 5"/>
+      </svg>
+    </button>
+    <button class="arrow-btn" id="btnRight" title="Avanzar">
+      <svg width="54" height="54" viewBox="0 0 54 54">
+        <polygon points="16,10 38,27 16,44" fill="none" stroke="#c8960c" stroke-width="2.5" stroke-linejoin="round"/>
+        <line x1="40" y1="10" x2="40" y2="44" stroke="#c8960c" stroke-width="2" stroke-linecap="round"/>
+        <line x1="46" y1="27" x2="48" y2="22" stroke="#8a6508" stroke-width="1"/>
+        <line x1="46" y1="27" x2="48" y2="32" stroke="#8a6508" stroke-width="1"/>
+        <circle cx="27" cy="27" r="26" fill="none" stroke="#8a6508" stroke-width="0.5" stroke-dasharray="3 5"/>
+      </svg>
+    </button>
+  </div>
+
+  <div class="rune-band">𝌀 · ☽ · ✦ · 𓇳 · ✦ · ☽ · 𝌀</div>
+
+  <!-- Upload panel -->
+  <div class="upload-panel">
+    <h3>Signos · /trecena/ y /veintena/ · clic para reemplazar imagen</h3>
+    <div class="slots-grid" id="slotsGrid"></div>
+  </div>
+
+</div>
+
+<script>
+// ── STARFIELD ──────────────────────────────────────────────
+(function(){
+  const canvas = document.getElementById('starfield');
+  const ctx = canvas.getContext('2d');
+  let W, H, stars = [], lines = [];
+
+  function resize(){
+    W = canvas.width  = window.innerWidth;
+    H = canvas.height = window.innerHeight;
+  }
+  function initStars(){
+    stars = [];
+    for(let i=0;i<220;i++){
+      stars.push({
+        x: Math.random()*W, y: Math.random()*H,
+        r: Math.random()*1.4+0.2,
+        a: Math.random(),
+        da: (Math.random()-0.5)*0.008,
+        color: Math.random()<0.12 ? '#f0c030' : (Math.random()<0.25 ? '#a0d0ff' : '#ffffff')
+      });
+    }
+    // constellation lines (just a few between random star pairs for atmosphere)
+    lines = [];
+    for(let i=0;i<18;i++){
+      const a = Math.floor(Math.random()*stars.length);
+      const b = Math.floor(Math.random()*stars.length);
+      const d = Math.hypot(stars[a].x-stars[b].x, stars[a].y-stars[b].y);
+      if(d < 140 && d > 40) lines.push([a,b]);
+    }
+  }
+  function draw(){
+    ctx.clearRect(0,0,W,H);
+    // Deep space bg gradient
+    const grd = ctx.createRadialGradient(W/2,H/2,0, W/2,H/2,Math.max(W,H)*0.7);
+    grd.addColorStop(0,'#0d0808');
+    grd.addColorStop(0.5,'#070510');
+    grd.addColorStop(1,'#020202');
+    ctx.fillStyle = grd;
+    ctx.fillRect(0,0,W,H);
+
+    // constellation lines
+    ctx.strokeStyle = 'rgba(200,150,12,0.06)';
+    ctx.lineWidth = 0.5;
+    for(const [a,b] of lines){
+      ctx.beginPath();
+      ctx.moveTo(stars[a].x, stars[a].y);
+      ctx.lineTo(stars[b].x, stars[b].y);
+      ctx.stroke();
+    }
+
+    // stars
+    for(const s of stars){
+      s.a += s.da;
+      if(s.a <= 0 || s.a >= 1) s.da *= -1;
+      ctx.globalAlpha = s.a * 0.9;
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, s.r, 0, Math.PI*2);
+      ctx.fillStyle = s.color;
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    requestAnimationFrame(draw);
+  }
+  window.addEventListener('resize', ()=>{ resize(); initStars(); });
+  resize(); initStars(); draw();
+})();
+
+// ── GEAR SYSTEM ────────────────────────────────────────────
+const TEETH_L = 13;   // left gear
+const TEETH_R = 20;   // right gear
+
+// ── Preload images from /trecena/1.png … /trecena/13.png
+//                    and /veintena/1.png … /veintena/20.png
+// Also keep the user-upload arrays (they override the preloaded ones)
+const leftImgs  = new Array(TEETH_L).fill(null);
+const rightImgs = new Array(TEETH_R).fill(null);
+
+function preloadImages(){
+  for(let i=1;i<=TEETH_L;i++){
+    const img = new Image();
+    img.onload = ()=>{ leftImgs[i-1] = img; render(); };
+    img.onerror = ()=>{}; // silently skip missing files
+    img.src = `trecena/${i}.png`;
+  }
+  for(let i=1;i<=TEETH_R;i++){
+    const img = new Image();
+    img.onload = ()=>{ rightImgs[i-1] = img; render(); };
+    img.onerror = ()=>{};
+    img.src = `veintena/${i}.png`;
+  }
+}
+
+// Current rotation offset (integer tooth steps)
+let stepOffset = 0;
+
+// ── Draw one gear ──
+function drawGear(canvas, teeth, radius, toothH, toothW, rotationAngle, imgs, imgOffset){
+  const ctx = canvas.getContext('2d');
+  const size = canvas.width;
+  const cx = size/2, cy = size/2;
+
+  ctx.clearRect(0, 0, size, size);
+
+  const angleStep = (2*Math.PI) / teeth;
+  const innerR = radius - toothH;
+
+  // Glow halo
+  const grd = ctx.createRadialGradient(cx,cy,innerR*0.6, cx,cy,radius+toothH+18);
+  grd.addColorStop(0,'rgba(200,150,12,0.04)');
+  grd.addColorStop(0.7,'rgba(200,150,12,0.12)');
+  grd.addColorStop(1,'rgba(200,150,12,0)');
+  ctx.fillStyle = grd;
+  ctx.beginPath();
+  ctx.arc(cx,cy,radius+toothH+18,0,Math.PI*2);
+  ctx.fill();
+
+  // ── GEAR BODY PATH ──
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate(rotationAngle);
+
+  ctx.beginPath();
+  for(let i=0;i<teeth;i++){
+    const a0 = i*angleStep - angleStep*0.5;
+    const a1 = i*angleStep - angleStep*0.22;
+    const a2 = i*angleStep + angleStep*0.22;
+    const a3 = i*angleStep + angleStep*0.5;
+    ctx.lineTo(innerR*Math.cos(a0), innerR*Math.sin(a0));
+    ctx.lineTo(radius*Math.cos(a1), radius*Math.sin(a1));
+    ctx.lineTo(radius*Math.cos(a2), radius*Math.sin(a2));
+    ctx.lineTo(innerR*Math.cos(a3), innerR*Math.sin(a3));
+  }
+  ctx.closePath();
+
+  // Stone texture fill
+  const stoneGrd = ctx.createRadialGradient(-innerR*0.15,-innerR*0.15,0, 0,0,radius+toothH);
+  stoneGrd.addColorStop(0,'#4a3820');
+  stoneGrd.addColorStop(0.4,'#362813');
+  stoneGrd.addColorStop(0.75,'#261d0d');
+  stoneGrd.addColorStop(1,'#1a1208');
+  ctx.fillStyle = stoneGrd;
+  ctx.fill();
+
+  // Stone edge engraving
+  ctx.strokeStyle = '#7a5c20';
+  ctx.lineWidth = 2.2;
+  ctx.stroke();
+
+  // Inner stroke
+  ctx.beginPath();
+  ctx.arc(0,0,innerR-6,0,Math.PI*2);
+  ctx.strokeStyle = '#5a4218';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+
+  // Radial carved lines (spokes)
+  ctx.strokeStyle = 'rgba(80,55,20,0.5)';
+  ctx.lineWidth = 1;
+  for(let i=0;i<teeth;i++){
+    const a = i*angleStep;
+    ctx.beginPath();
+    ctx.moveTo((innerR*0.38)*Math.cos(a),(innerR*0.38)*Math.sin(a));
+    ctx.lineTo((innerR-10)*Math.cos(a),(innerR-10)*Math.sin(a));
+    ctx.stroke();
+  }
+
+  // Concentric rings (stone carving effect)
+  for(const rf of [0.28,0.5,0.7]){
+    ctx.beginPath();
+    ctx.arc(0,0,innerR*rf,0,Math.PI*2);
+    ctx.strokeStyle = 'rgba(120,85,30,0.35)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  }
+
+  // Center circle
+  const cGrd = ctx.createRadialGradient(0,0,0,0,0,innerR*0.28);
+  cGrd.addColorStop(0,'#5a4020');
+  cGrd.addColorStop(1,'#1e1408');
+  ctx.beginPath();
+  ctx.arc(0,0,innerR*0.28,0,Math.PI*2);
+  ctx.fillStyle = cGrd;
+  ctx.fill();
+  ctx.strokeStyle = '#c8960c';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+
+  // Center sun glyph
+  ctx.strokeStyle = 'rgba(200,150,12,0.6)';
+  ctx.lineWidth = 1;
+  for(let i=0;i<8;i++){
+    const a = i*(Math.PI/4);
+    ctx.beginPath();
+    ctx.moveTo(innerR*0.07*Math.cos(a), innerR*0.07*Math.sin(a));
+    ctx.lineTo(innerR*0.22*Math.cos(a), innerR*0.22*Math.sin(a));
+    ctx.stroke();
+  }
+
+  // Tooth number glyphs (small glyph marks)
+  const GLYPHS = ['𓂀','𓇳','𓊹','𓋴','𓌙','𓎛','𓂋','𓏏','𓊃','𓈖','𓂞','𓋸','𓀭','𓁻','𓃒','𓆑','𓅱','𓂝','𓆣','𓇩'];
+  ctx.font = `${Math.floor(innerR*0.13)}px serif`;
+  ctx.fillStyle = 'rgba(200,150,12,0.5)';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  for(let i=0;i<teeth;i++){
+    const a = i*angleStep;
+    const gr = innerR*0.62;
+    ctx.save();
+    ctx.translate(gr*Math.cos(a), gr*Math.sin(a));
+    ctx.rotate(a + Math.PI/2);
+    ctx.fillText(GLYPHS[i % GLYPHS.length], 0, 0);
+    ctx.restore();
+  }
+
+  ctx.restore(); // undo rotation+translate
+
+  // ── IMAGES ON TEETH (drawn in world coords so they don't rotate visually with gear; 
+  //    they orbit with the tooth positions) ──
+  if(imgs){
+    for(let i=0;i<teeth;i++){
+      const img = imgs[(i + imgOffset) % teeth]; // no — keep slot consistent with tooth
+      // Actually: slot i image sits at tooth i (visual position rotates with gear)
+      const a = rotationAngle + i*angleStep;
+      const tipR = radius + toothH*0.5;
+      const ix = cx + tipR*Math.cos(a);
+      const iy = cy + tipR*Math.sin(a);
+      if(img && img.complete && img.naturalWidth > 0){
+        const is = Math.floor(toothH * 1.2);
+        ctx.save();
+        ctx.translate(ix, iy);
+        ctx.rotate(a + Math.PI/2);
+        ctx.drawImage(img, -is/2, -is/2, is, is);
+        ctx.restore();
+      } else {
+        // Placeholder glyph at tooth tip
+        const MARKS = ['☉','☽','✦','⊕','✧','◈','⊗','❋','◉','⊙','⌂','☿','♃','♄','♀','⚸','☊','☋','♅','♆'];
+        ctx.save();
+        ctx.translate(ix, iy);
+        ctx.rotate(a + Math.PI/2);
+        ctx.font = `bold ${Math.floor(toothH*0.55)}px serif`;
+        ctx.fillStyle = 'rgba(200,150,12,0.75)';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(MARKS[i % MARKS.length], 0, 0);
+        ctx.restore();
+      }
+    }
+  }
+}
+
+// ── Setup canvases ──
+function setupCanvases(){
+  const stage = document.getElementById('gearsStage');
+  const stageH = stage.offsetHeight || 400;
+  const availW = Math.min(stage.offsetWidth, 780);
+
+  // Left gear (13 teeth) — slightly smaller
+  const LR = Math.min(stageH*0.42, availW*0.28, 155);
+  const LTH = Math.floor(LR*0.22);
+  const LTW = LTH*0.7;
+  const Lsize = (LR+LTH+22)*2;
+
+  const leftC = document.getElementById('leftGear');
+  leftC.width = leftC.height = Lsize;
+  leftC.style.width = leftC.style.height = Lsize+'px';
+
+  // Right gear (20 teeth) — larger
+  const RR = Math.min(stageH*0.46, availW*0.32, 175);
+  const RTH = Math.floor(RR*0.2);
+  const RTW = RTH*0.6;
+  const Rsize = (RR+RTH+22)*2;
+
+  const rightC = document.getElementById('rightGear');
+  rightC.width = rightC.height = Rsize;
+  rightC.style.width = rightC.style.height = Rsize+'px';
+
+  return { LR, LTH, LTW, Lsize, RR, RTH, RTW, Rsize };
+}
+
+let gearParams = null;
+let animAngle = 0;    // continuous float angle for smooth animation
+let animTarget = 0;   // target angle
+let animating = false;
+
+// Each tooth spans: left = 2π/13, right = 2π/20
+// When gears mesh: turning right 1 tooth = turning left by (20/13) teeth (ratio)
+
+function getAngles(){
+  // stepOffset counts right-gear tooth steps
+  const rightAngle = stepOffset * (2*Math.PI/TEETH_R);
+  // left rotates opposite direction, scaled by ratio
+  const leftAngle  = -stepOffset * (2*Math.PI/TEETH_L);
+  return { rightAngle, leftAngle };
+}
+
+function render(){
+  if(!gearParams) return;
+  const { LR, LTH, LTW, RR, RTH, RTW } = gearParams;
+  const { rightAngle, leftAngle } = getAngles();
+  drawGear(document.getElementById('leftGear'),  TEETH_L, LR, LTH, LTW, leftAngle,  leftImgs,  0);
+  drawGear(document.getElementById('rightGear'), TEETH_R, RR, RTH, RTW, rightAngle, rightImgs, 0);
+  updateSignPanel();
+}
+
+// ── Which tooth is at the nexus (pointing inward, toward the other gear)?
+// The left gear's rightmost tooth = angle 0 (pointing right)
+// The right gear's leftmost tooth = angle π (pointing left)
+// We find the tooth index closest to that angle given current rotation.
+function activeToothIndex(teeth, rotationAngle, facingAngle){
+  const step = (2*Math.PI)/teeth;
+  // Find tooth i such that (rotationAngle + i*step) mod 2π is closest to facingAngle
+  let best = 0, bestDist = Infinity;
+  for(let i=0;i<teeth;i++){
+    const a = ((rotationAngle + i*step) % (2*Math.PI) + 2*Math.PI) % (2*Math.PI);
+    const fa = ((facingAngle) % (2*Math.PI) + 2*Math.PI) % (2*Math.PI);
+    let d = Math.abs(a - fa);
+    if(d > Math.PI) d = 2*Math.PI - d;
+    if(d < bestDist){ bestDist = d; best = i; }
+  }
+  return best;
+}
+
+const MARKS = ['☉','☽','✦','⊕','✧','◈','⊗','❋','◉','⊙','⌂','☿','♃','♄','♀','⚸','☊','☋','♅','♆'];
+const LEFT_NAMES  = ['1-Cipactli','2-Ehecatl','3-Calli','4-Cuetzpalin','5-Coatl','6-Miquiztli','7-Mazatl','8-Tochtli','9-Atl','10-Itzcuintli','11-Ozomatli','12-Malinalli','13-Acatl'];
+const RIGHT_NAMES = ['1-Ocelotl','2-Cuauhtli','3-Cozcacuauhtli','4-Ollin','5-Tecpatl','6-Quiahuitl','7-Xochitl','8-Cipactli','9-Ehecatl','10-Calli','11-Cuetzpalin','12-Coatl','13-Miquiztli','14-Mazatl','15-Tochtli','16-Atl','17-Itzcuintli','18-Ozomatli','19-Malinalli','20-Acatl'];
+
+function updateSignPanel(animCur){
+  const { LR, LTH, LTW, RR, RTH, RTW } = gearParams;
+  const cur = (animCur !== undefined) ? animCur : stepOffset;
+  const rightAngle = cur * (2*Math.PI/TEETH_R);
+  const leftAngle  = -cur * (2*Math.PI/TEETH_L);
+
+  // Left gear: tooth facing RIGHT (toward nexus, angle = 0)
+  const li = activeToothIndex(TEETH_L, leftAngle, 0);
+  // Right gear: tooth facing LEFT (toward nexus, angle = π)
+  const ri = activeToothIndex(TEETH_R, rightAngle, Math.PI);
+
+  const lImg = leftImgs[li];
+  const rImg = rightImgs[ri];
+
+  const elL = document.getElementById('panelImgLeft');
+  const elR = document.getElementById('panelImgRight');
+  const lblL = document.getElementById('panelLblLeft');
+  const lblR = document.getElementById('panelLblRight');
+
+  // Left slot (trecena)
+  elL.innerHTML = '';
+  if(lImg && lImg.complete && lImg.naturalWidth > 0){
+    const im = document.createElement('img');
+    im.src = lImg.src;
+    im.style.cssText = 'width:100%;height:100%;object-fit:contain';
+    elL.appendChild(im);
+  } else {
+    elL.textContent = String(li+1);
+    elL.style.fontSize = '1.1rem';
+    elL.style.color = 'rgba(200,150,12,0.9)';
+  }
+  lblL.textContent = LEFT_NAMES[li % LEFT_NAMES.length];
+
+  // Right slot (veintena)
+  elR.innerHTML = '';
+  if(rImg && rImg.complete && rImg.naturalWidth > 0){
+    const im = document.createElement('img');
+    im.src = rImg.src;
+    im.style.cssText = 'width:100%;height:100%;object-fit:contain';
+    elR.appendChild(im);
+  } else {
+    elR.textContent = String(ri+1);
+    elR.style.fontSize = '1.1rem';
+    elR.style.color = 'rgba(200,150,12,0.9)';
+  }
+  lblR.textContent = RIGHT_NAMES[ri % RIGHT_NAMES.length];
+}
+
+// ── Animation loop ──
+let lastStep = 0;
+let animProgress = 1; // 0→1 during a step transition
+let animDir = 1;
+
+function animate(){
+  if(animProgress < 1){
+    animProgress = Math.min(1, animProgress + 0.045);
+    const ease = t => t<0.5 ? 2*t*t : -1+(4-2*t)*t;
+    const t = ease(animProgress);
+    const diff = stepOffset - lastStep;
+    const cur = lastStep + diff * t;
+    const { LR, LTH, LTW, RR, RTH, RTW } = gearParams;
+    const rightAngle = cur * (2*Math.PI/TEETH_R);
+    const leftAngle  = -cur * (2*Math.PI/TEETH_L);
+    drawGear(document.getElementById('leftGear'),  TEETH_L, LR, LTH, LTW, leftAngle,  leftImgs,  0);
+    drawGear(document.getElementById('rightGear'), TEETH_R, RR, RTH, RTW, rightAngle, rightImgs, 0);
+    updateSignPanel(cur);
+  }
+  requestAnimationFrame(animate);
+}
+
+function step(dir){
+  if(animProgress < 1) return; // wait for previous animation
+  lastStep = stepOffset;
+  stepOffset += dir;
+  animProgress = 0;
+}
+
+document.getElementById('btnLeft').addEventListener('click',  ()=> step(-1));
+document.getElementById('btnRight').addEventListener('click', ()=> step(1));
+
+// ── Keyboard support ──
+document.addEventListener('keydown', e=>{
+  if(e.key === 'ArrowLeft') step(-1);
+  if(e.key === 'ArrowRight') step(1);
+});
+
+// ── Upload panel (manual override on top of preloaded images) ──
+function buildUploadPanel(){
+  const grid = document.getElementById('slotsGrid');
+  grid.innerHTML = '';
+
+  const labels = [];
+  for(let i=0;i<TEETH_L;i++) labels.push({ label:`${i+1}`, name: LEFT_NAMES[i], arr:leftImgs,  idx:i, path:`trecena/${i+1}.png` });
+  for(let i=0;i<TEETH_R;i++) labels.push({ label:`${i+1}`, name: RIGHT_NAMES[i], arr:rightImgs, idx:i, path:`veintena/${i+1}.png` });
+
+  for(const slot of labels){
+    const wrap = document.createElement('div');
+    wrap.className = 'slot-upload';
+
+    const lbl = document.createElement('label');
+    lbl.textContent = slot.name.split('-')[0]; // just number
+    lbl.title = slot.name;
+
+    const thumb = document.createElement('div');
+    thumb.className = 'thumb';
+    // Show preloaded image if available
+    if(slot.arr[slot.idx] && slot.arr[slot.idx].complete && slot.arr[slot.idx].naturalWidth > 0){
+      const pr = document.createElement('img'); pr.src = slot.arr[slot.idx].src; thumb.appendChild(pr);
+    } else {
+      thumb.textContent = slot.label;
+      // If preload finishes later, update thumb
+      const checkImg = new Image();
+      checkImg.onload = ()=>{
+        thumb.textContent = '';
+        const pr = document.createElement('img'); pr.src = checkImg.src; thumb.appendChild(pr);
+      };
+      checkImg.src = slot.path;
+    }
+    thumb.title = `${slot.name} · click para reemplazar`;
+
+    const inp = document.createElement('input');
+    inp.type = 'file';
+    inp.accept = 'image/png,image/webp,image/gif,image/jpeg';
+
+    thumb.addEventListener('click', ()=> inp.click());
+
+    inp.addEventListener('change', ()=>{
+      const file = inp.files[0];
+      if(!file) return;
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = ()=>{
+        slot.arr[slot.idx] = img;
+        thumb.innerHTML = '';
+        const preview = document.createElement('img');
+        preview.src = url;
+        thumb.appendChild(preview);
+        render();
+      };
+      img.src = url;
+    });
+
+    wrap.appendChild(lbl);
+    wrap.appendChild(thumb);
+    wrap.appendChild(inp);
+    grid.appendChild(wrap);
+  }
+}
+
+// ── Datetime input → step ──
+// The Tonalpohualli has 260 positions (13×20). We map each day to a step.
+// Additionally the hour (0–23) further subdivides: we show which "watch" of the day
+// by offsetting within the same day if the user also sets a time.
+function nowStr(){
+  const d = new Date();
+  const pad = n => String(n).padStart(2,'0');
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function dateToStep(dtStr){
+  // dtStr is "YYYY-MM-DDTHH:MM"
+  const d = new Date(dtStr);
+  if(isNaN(d)) return 0;
+  const epoch = new Date('2000-01-01T00:00');
+  const totalMinutes = Math.floor((d - epoch) / 60000);
+  // Each "day" = 1440 minutes. Each tonalpohualli step = 1 day.
+  // We also honour the hour: every hour shifts the veintena display (cosmetic),
+  // but the canonical day step is just floor(totalMinutes/1440).
+  const days = Math.floor(totalMinutes / 1440);
+  return ((days % 260) + 260) % 260;
+}
+
+document.getElementById('dateInput').value = nowStr();
+
+document.getElementById('dateInput').addEventListener('change', function(){
+  stepOffset = dateToStep(this.value);
+  lastStep = stepOffset;
+  animProgress = 1;
+  render();
+});
+
+// ── INIT ──
+window.addEventListener('load', ()=>{
+  gearParams = setupCanvases();
+  buildUploadPanel();
+  preloadImages();
+  stepOffset = dateToStep(nowStr());
+  lastStep = stepOffset;
+  animProgress = 1;
+  render();
+  animate();
+});
+
+window.addEventListener('resize', ()=>{
+  gearParams = setupCanvases();
+  render();
+});
+</script>
+</body>
+</html>
